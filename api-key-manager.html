@@ -513,6 +513,25 @@
                 <button class="btn btn-secondary" onclick="clearForm()">
                     🗑️ 폼 초기화
                 </button>
+
+                <hr style="margin: 30px 0; border: none; border-top: 2px solid #f0f0f0;">
+
+                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">⚙️ 도구</h3>
+
+                <button class="btn btn-secondary" onclick="exportKeysForScan()" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                    📤 키 목록 내보내기 (스캔용)
+                </button>
+
+                <button class="btn btn-secondary" onclick="importScanResults()">
+                    📥 스캔 결과 가져오기
+                </button>
+
+                <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 12px;">
+                    <strong>💡 사용 방법:</strong><br>
+                    1. "키 목록 내보내기" → <code>registered-keys.json</code> 저장<br>
+                    2. 터미널에서: <code>npm run scan</code><br>
+                    3. "스캔 결과 가져오기" → <code>api-keys-usage.json</code> 선택
+                </div>
             </div>
 
             <div class="panel">
@@ -737,38 +756,109 @@
             }
         }
 
-        // 사용 위치 스캔 (클라이언트 측에서는 제한적)
+        // 사용 위치 스캔 (Node.js 스크립트 사용 안내)
         function scanKeyUsage(keyId) {
             const key = apiKeys.find(k => k.id === keyId);
             if (!key) return;
 
-            // 브라우저 환경에서는 파일 시스템에 직접 접근할 수 없으므로
-            // 이미 알려진 위치를 확인하거나 사용자에게 수동 입력을 요청
             showAlert(
-                '브라우저 환경에서는 자동 코드 스캔이 제한됩니다. ' +
-                '키 편집 시 수동으로 사용 위치를 추가하거나, ' +
-                '서버 측 스캔 도구를 사용하세요.',
+                `🔍 "${key.name}" 사용 위치를 스캔하려면:\n\n` +
+                `1. 왼쪽 패널의 "📤 키 목록 내보내기" 클릭\n` +
+                `2. 터미널에서 "npm run scan" 실행\n` +
+                `3. "📥 스캔 결과 가져오기"로 결과 불러오기\n\n` +
+                `Node.js가 설치되지 않은 경우 "npm install"을 먼저 실행하세요.`,
                 'info'
             );
+        }
 
-            // 현재 페이지(index.html)에서 키가 사용되는지 간단히 확인
-            fetch('index.html')
-                .then(response => response.text())
-                .then(html => {
-                    const maskedKey = key.value.substring(0, 10);
-                    if (html.includes(maskedKey) || html.includes(key.value)) {
-                        key.usageLocations.push('index.html');
-                        key.isUsed = true;
+        // 스캔용 키 목록 내보내기
+        function exportKeysForScan() {
+            if (apiKeys.length === 0) {
+                showAlert('내보낼 API 키가 없습니다.', 'error');
+                return;
+            }
+
+            const exportData = apiKeys.map(key => ({
+                name: key.name,
+                value: key.value,
+                type: key.type
+            }));
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = 'registered-keys.json';
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+
+            showAlert(
+                `✓ registered-keys.json 파일이 다운로드되었습니다.\n\n` +
+                `이제 터미널에서 "npm run scan"을 실행하세요.`,
+                'success'
+            );
+        }
+
+        // 스캔 결과 가져오기
+        function importScanResults() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+
+                reader.onload = event => {
+                    try {
+                        const scanResults = JSON.parse(event.target.result);
+
+                        // 스캔 결과 검증
+                        if (!scanResults.apiKeys || typeof scanResults.apiKeys !== 'object') {
+                            throw new Error('올바른 스캔 결과 파일이 아닙니다.');
+                        }
+
+                        // 사용 위치 업데이트
+                        let updatedCount = 0;
+                        Object.entries(scanResults.apiKeys).forEach(([keyValue, info]) => {
+                            const key = apiKeys.find(k => k.value === keyValue);
+                            if (key) {
+                                // 사용 위치 업데이트
+                                key.usageLocations = info.locations.map(loc =>
+                                    `${loc.file}:${loc.line}`
+                                );
+                                key.isUsed = info.locations.length > 0;
+                                updatedCount++;
+                            }
+                        });
+
                         saveKeys();
                         renderAPIKeys();
-                        showAlert(`"${key.name}"가 index.html에서 발견되었습니다.`, 'success');
-                    } else {
-                        showAlert(`현재 페이지에서 "${key.name}"를 찾을 수 없습니다.`, 'info');
+                        updateStats();
+
+                        showAlert(
+                            `✓ 스캔 결과를 성공적으로 가져왔습니다!\n\n` +
+                            `- 업데이트된 키: ${updatedCount}개\n` +
+                            `- 총 발견된 사용 위치: ${scanResults.totalMatches}곳\n` +
+                            `- 스캔한 파일: ${scanResults.totalFiles}개`,
+                            'success'
+                        );
+                    } catch (error) {
+                        console.error('스캔 결과 처리 오류:', error);
+                        showAlert(
+                            `스캔 결과 파일 처리 중 오류가 발생했습니다:\n${error.message}`,
+                            'error'
+                        );
                     }
-                })
-                .catch(error => {
-                    console.error('스캔 오류:', error);
-                });
+                };
+
+                reader.readAsText(file);
+            };
+
+            input.click();
         }
 
         // 모든 키 검증
