@@ -516,21 +516,15 @@
 
                 <hr style="margin: 30px 0; border: none; border-top: 2px solid #f0f0f0;">
 
-                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">⚙️ 도구</h3>
+                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">⚙️ 빠른 스캔</h3>
 
-                <button class="btn btn-secondary" onclick="exportKeysForScan()" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
-                    📤 키 목록 내보내기 (스캔용)
+                <button class="btn btn-secondary" onclick="scanProjectFolder()" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                    🔍 프로젝트 폴더 스캔
                 </button>
 
-                <button class="btn btn-secondary" onclick="importScanResults()">
-                    📥 스캔 결과 가져오기
-                </button>
-
-                <div style="margin-top: 15px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 12px;">
+                <div style="margin-top: 15px; padding: 12px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px; font-size: 12px;">
                     <strong>💡 사용 방법:</strong><br>
-                    1. "키 목록 내보내기" → <code>registered-keys.json</code> 저장<br>
-                    2. 터미널에서: <code>npm run scan</code><br>
-                    3. "스캔 결과 가져오기" → <code>api-keys-usage.json</code> 선택
+                    버튼 클릭 → 프로젝트 폴더 선택 → 자동 스캔 완료!
                 </div>
             </div>
 
@@ -756,109 +750,153 @@
             }
         }
 
-        // 사용 위치 스캔 (Node.js 스크립트 사용 안내)
+        // 프로젝트 폴더 스캔 (브라우저에서 직접 스캔)
+        async function scanProjectFolder() {
+            if (apiKeys.length === 0) {
+                showAlert('먼저 API 키를 등록해주세요!', 'error');
+                return;
+            }
+
+            // File System Access API 지원 확인
+            if (!window.showDirectoryPicker) {
+                showAlert(
+                    '이 브라우저는 폴더 스캔을 지원하지 않습니다.\n\n' +
+                    'Chrome, Edge 또는 최신 브라우저를 사용해주세요.\n\n' +
+                    '또는 터미널에서 "npm run scan"을 사용하세요.',
+                    'error'
+                );
+                return;
+            }
+
+            try {
+                // 폴더 선택
+                const dirHandle = await window.showDirectoryPicker({
+                    mode: 'read',
+                    startIn: 'documents'
+                });
+
+                showLoading(true);
+                showAlert('폴더를 스캔하는 중입니다...', 'info');
+
+                // 스캔 실행
+                const results = await scanDirectory(dirHandle);
+
+                // 결과 적용
+                let updatedCount = 0;
+                Object.entries(results.foundKeys).forEach(([keyValue, locations]) => {
+                    const key = apiKeys.find(k => k.value === keyValue);
+                    if (key) {
+                        key.usageLocations = locations;
+                        key.isUsed = locations.length > 0;
+                        updatedCount++;
+                    }
+                });
+
+                saveKeys();
+                renderAPIKeys();
+                updateStats();
+
+                showAlert(
+                    `✓ 스캔 완료!\n\n` +
+                    `- 스캔한 파일: ${results.totalFiles}개\n` +
+                    `- 발견한 키: ${updatedCount}개\n` +
+                    `- 총 사용 위치: ${results.totalLocations}곳`,
+                    'success'
+                );
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showAlert('스캔이 취소되었습니다.', 'info');
+                } else {
+                    console.error('스캔 오류:', error);
+                    showAlert(`스캔 중 오류 발생: ${error.message}`, 'error');
+                }
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 디렉토리 재귀 스캔
+        async function scanDirectory(dirHandle, results = null, basePath = '') {
+            if (!results) {
+                results = {
+                    totalFiles: 0,
+                    totalLocations: 0,
+                    foundKeys: {}
+                };
+            }
+
+            const excludeDirs = ['node_modules', '.git', 'dist', 'build', '.cache'];
+            const includeExts = ['.html', '.js', '.ts', '.jsx', '.tsx', '.json', '.env', '.txt', '.md'];
+
+            try {
+                for await (const entry of dirHandle.values()) {
+                    const currentPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+
+                    if (entry.kind === 'directory') {
+                        // 제외 디렉토리 확인
+                        if (!excludeDirs.includes(entry.name)) {
+                            await scanDirectory(entry, results, currentPath);
+                        }
+                    } else if (entry.kind === 'file') {
+                        // 파일 확장자 확인
+                        const ext = entry.name.substring(entry.name.lastIndexOf('.'));
+                        if (includeExts.includes(ext)) {
+                            await scanFile(entry, results, currentPath);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn(`디렉토리 읽기 오류 (${basePath}):`, error);
+            }
+
+            return results;
+        }
+
+        // 파일 스캔
+        async function scanFile(fileHandle, results, filePath) {
+            try {
+                const file = await fileHandle.getFile();
+
+                // 파일 크기 제한 (5MB)
+                if (file.size > 5 * 1024 * 1024) return;
+
+                const content = await file.text();
+                const lines = content.split('\n');
+
+                results.totalFiles++;
+
+                // 각 API 키 검색
+                apiKeys.forEach(key => {
+                    lines.forEach((line, index) => {
+                        if (line.includes(key.value)) {
+                            const location = `${filePath}:${index + 1}`;
+
+                            if (!results.foundKeys[key.value]) {
+                                results.foundKeys[key.value] = [];
+                            }
+
+                            results.foundKeys[key.value].push(location);
+                            results.totalLocations++;
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.warn(`파일 읽기 오류 (${filePath}):`, error);
+            }
+        }
+
+        // 개별 키 스캔
         function scanKeyUsage(keyId) {
             const key = apiKeys.find(k => k.id === keyId);
             if (!key) return;
 
             showAlert(
                 `🔍 "${key.name}" 사용 위치를 스캔하려면:\n\n` +
-                `1. 왼쪽 패널의 "📤 키 목록 내보내기" 클릭\n` +
-                `2. 터미널에서 "npm run scan" 실행\n` +
-                `3. "📥 스캔 결과 가져오기"로 결과 불러오기\n\n` +
-                `Node.js가 설치되지 않은 경우 "npm install"을 먼저 실행하세요.`,
+                `왼쪽 패널의 "🔍 프로젝트 폴더 스캔" 버튼을 클릭하세요!`,
                 'info'
             );
-        }
-
-        // 스캔용 키 목록 내보내기
-        function exportKeysForScan() {
-            if (apiKeys.length === 0) {
-                showAlert('내보낼 API 키가 없습니다.', 'error');
-                return;
-            }
-
-            const exportData = apiKeys.map(key => ({
-                name: key.name,
-                value: key.value,
-                type: key.type
-            }));
-
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            const exportFileDefaultName = 'registered-keys.json';
-
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
-
-            showAlert(
-                `✓ registered-keys.json 파일이 다운로드되었습니다.\n\n` +
-                `이제 터미널에서 "npm run scan"을 실행하세요.`,
-                'success'
-            );
-        }
-
-        // 스캔 결과 가져오기
-        function importScanResults() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.json';
-
-            input.onchange = e => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-
-                reader.onload = event => {
-                    try {
-                        const scanResults = JSON.parse(event.target.result);
-
-                        // 스캔 결과 검증
-                        if (!scanResults.apiKeys || typeof scanResults.apiKeys !== 'object') {
-                            throw new Error('올바른 스캔 결과 파일이 아닙니다.');
-                        }
-
-                        // 사용 위치 업데이트
-                        let updatedCount = 0;
-                        Object.entries(scanResults.apiKeys).forEach(([keyValue, info]) => {
-                            const key = apiKeys.find(k => k.value === keyValue);
-                            if (key) {
-                                // 사용 위치 업데이트
-                                key.usageLocations = info.locations.map(loc =>
-                                    `${loc.file}:${loc.line}`
-                                );
-                                key.isUsed = info.locations.length > 0;
-                                updatedCount++;
-                            }
-                        });
-
-                        saveKeys();
-                        renderAPIKeys();
-                        updateStats();
-
-                        showAlert(
-                            `✓ 스캔 결과를 성공적으로 가져왔습니다!\n\n` +
-                            `- 업데이트된 키: ${updatedCount}개\n` +
-                            `- 총 발견된 사용 위치: ${scanResults.totalMatches}곳\n` +
-                            `- 스캔한 파일: ${scanResults.totalFiles}개`,
-                            'success'
-                        );
-                    } catch (error) {
-                        console.error('스캔 결과 처리 오류:', error);
-                        showAlert(
-                            `스캔 결과 파일 처리 중 오류가 발생했습니다:\n${error.message}`,
-                            'error'
-                        );
-                    }
-                };
-
-                reader.readAsText(file);
-            };
-
-            input.click();
         }
 
         // 모든 키 검증
