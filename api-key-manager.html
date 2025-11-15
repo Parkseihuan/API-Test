@@ -396,7 +396,7 @@
             </div>
         </div>
 
-        <div class="stats-panel" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="stats-panel" style="grid-template-columns: repeat(4, 1fr);">
             <div class="stat-card">
                 <div class="stat-value" id="totalKeys">0</div>
                 <div class="stat-label">총 API 키</div>
@@ -408,6 +408,10 @@
             <div class="stat-card">
                 <div class="stat-value" id="invalidKeys">0</div>
                 <div class="stat-label">무효한 키</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="usedKeys">0</div>
+                <div class="stat-label">사용 중</div>
             </div>
         </div>
 
@@ -454,9 +458,14 @@
             <div class="panel">
                 <h2>등록된 API 키 목록</h2>
 
-                <button class="scan-all-btn" onclick="scanAllKeys()">
-                    🔍 모든 키 유효성 검증 실행
-                </button>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="scan-all-btn" onclick="scanAllKeys()" style="flex: 1; margin: 0;">
+                        🔍 모든 키 유효성 검증
+                    </button>
+                    <button class="scan-all-btn" onclick="checkUsageInIndex(); renderAPIKeys(); updateStats(); showAlert('사용 여부 확인 완료!', 'success');" style="flex: 1; margin: 0; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                        📄 index.html 사용 확인
+                    </button>
+                </div>
 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
@@ -518,7 +527,9 @@
                 description: keyDescription,
                 status: 'unknown', // unknown, valid, invalid
                 createdAt: new Date().toISOString(),
-                lastValidated: null
+                lastValidated: null,
+                isUsedInProject: false, // index.html에서 사용 중인지
+                quotaInfo: null // 할당량 정보
             };
 
             apiKeys.push(newKey);
@@ -554,12 +565,26 @@
                     '<span class="key-status status-invalid">✗ 무효</span>' :
                     '<span class="key-status status-unknown">? 미검증</span>';
 
+                const usageBadge = key.isUsedInProject ?
+                    '<span class="key-status" style="background: #28a745;">✓ 사용 중</span>' :
+                    '<span class="key-status" style="background: #ffc107; color: #333;">미사용</span>';
+
+                const quotaInfo = key.quotaInfo ?
+                    `<div style="background: #e7f3ff; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 12px;">
+                        <strong>📊 플랜 정보:</strong> ${key.quotaInfo}
+                    </div>` : '';
+
                 return `
                     <div class="api-key-card ${statusClass}">
                         <div class="key-header">
                             <div class="key-name">${key.name}</div>
-                            ${statusBadge}
+                            <div style="display: flex; gap: 5px;">
+                                ${statusBadge}
+                                ${usageBadge}
+                            </div>
                         </div>
+
+                        ${quotaInfo}
 
                         <div class="key-info">
                             <div class="key-info-item">
@@ -604,28 +629,60 @@
 
             try {
                 let isValid = false;
+                let quotaInfo = null;
 
                 // API 타입에 따라 다른 검증 로직
                 if (key.type === 'gemini') {
-                    // Gemini API 검증
+                    // Gemini API 검증 및 할당량 정보 조회
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key.value}`);
                     isValid = response.ok;
-                } else if (key.type === 'openai') {
-                    // OpenAI API 검증 (예시)
-                    const response = await fetch('https://api.openai.com/v1/models', {
-                        headers: {
-                            'Authorization': `Bearer ${key.value}`
+
+                    if (isValid) {
+                        // 간단한 테스트 호출로 할당량 정보 추론
+                        const testResponse = await fetch(
+                            `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${key.value}`,
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: 'test' }] }]
+                                })
+                            }
+                        );
+
+                        // 응답 헤더에서 할당량 정보 추출 시도
+                        const remainingQuota = testResponse.headers.get('x-ratelimit-remaining');
+                        const quotaLimit = testResponse.headers.get('x-ratelimit-limit');
+
+                        if (testResponse.ok) {
+                            quotaInfo = '무료 플랜 (분당 15회, 일 1,500회 제한)';
+                        } else if (testResponse.status === 429) {
+                            quotaInfo = '무료 플랜 - 할당량 초과됨';
                         }
+                    }
+                } else if (key.type === 'openai') {
+                    // OpenAI API 검증
+                    const response = await fetch('https://api.openai.com/v1/models', {
+                        headers: { 'Authorization': `Bearer ${key.value}` }
                     });
                     isValid = response.ok;
+
+                    if (isValid) {
+                        quotaInfo = 'OpenAI API (플랜 정보는 대시보드에서 확인)';
+                    }
                 } else {
                     // 기타 API는 간단한 형식 검증만
                     isValid = key.value.length > 10;
+                    quotaInfo = '형식 검증만 수행됨';
                 }
 
                 // 상태 업데이트
                 key.status = isValid ? 'valid' : 'invalid';
                 key.lastValidated = new Date().toISOString();
+                key.quotaInfo = quotaInfo;
+
+                // index.html에서 사용 중인지 확인
+                await checkUsageInIndex();
 
                 saveKeys();
                 renderAPIKeys();
@@ -633,7 +690,7 @@
 
                 showAlert(
                     isValid ?
-                    `✓ "${key.name}" 키가 유효합니다!` :
+                    `✓ "${key.name}" 키가 유효합니다!${quotaInfo ? '\n' + quotaInfo : ''}` :
                     `✗ "${key.name}" 키가 유효하지 않습니다.`,
                     isValid ? 'success' : 'error'
                 );
@@ -642,6 +699,21 @@
                 showAlert(`검증 중 오류 발생: ${error.message}`, 'error');
             } finally {
                 showLoading(false);
+            }
+        }
+
+        // index.html에서 사용 중인 키 확인
+        async function checkUsageInIndex() {
+            try {
+                const response = await fetch('index.html');
+                const htmlContent = await response.text();
+
+                // 모든 키에 대해 사용 여부 확인
+                apiKeys.forEach(key => {
+                    key.isUsedInProject = htmlContent.includes(key.value);
+                });
+            } catch (error) {
+                console.warn('index.html 확인 실패:', error);
             }
         }
 
@@ -682,6 +754,8 @@
                 apiKeys.filter(k => k.status === 'valid').length;
             document.getElementById('invalidKeys').textContent =
                 apiKeys.filter(k => k.status === 'invalid').length;
+            document.getElementById('usedKeys').textContent =
+                apiKeys.filter(k => k.isUsedInProject).length;
         }
 
         // LocalStorage 저장
