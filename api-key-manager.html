@@ -169,11 +169,6 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        .api-key-card.unused {
-            background: #fff3cd;
-            border-color: #ffc107;
-        }
-
         .api-key-card.invalid {
             background: #f8d7da;
             border-color: #f5c6cb;
@@ -219,11 +214,6 @@
             color: white;
         }
 
-        .status-unused {
-            background: #ffc107;
-            color: #333;
-        }
-
         .key-info {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -250,42 +240,6 @@
             margin-bottom: 15px;
         }
 
-        .key-usage {
-            background: white;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-        }
-
-        .key-usage h4 {
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 8px;
-        }
-
-        .usage-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .usage-list li {
-            padding: 5px 0;
-            font-size: 13px;
-            color: #666;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .usage-list li:last-child {
-            border-bottom: none;
-        }
-
-        .usage-list li code {
-            background: #f0f0f0;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-
         .key-actions {
             display: flex;
             gap: 10px;
@@ -309,15 +263,6 @@
 
         .btn-validate:hover {
             background: #138496;
-        }
-
-        .btn-scan {
-            background: #ffc107;
-            color: #333;
-        }
-
-        .btn-scan:hover {
-            background: #e0a800;
         }
 
         .btn-delete {
@@ -444,14 +389,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔑 API 키 관리 시스템</h1>
-            <p class="subtitle">API 키 유효성 검증 및 사용 위치 추적</p>
+            <h1>🔑 API 키 관리</h1>
+            <p class="subtitle">간단하게 API 키를 등록하고, 작동 여부를 확인하세요</p>
             <div class="nav-links">
                 <a href="index.html">← Gemini API 테스트로 돌아가기</a>
             </div>
         </div>
 
-        <div class="stats-panel">
+        <div class="stats-panel" style="grid-template-columns: repeat(3, 1fr);">
             <div class="stat-card">
                 <div class="stat-value" id="totalKeys">0</div>
                 <div class="stat-label">총 API 키</div>
@@ -463,10 +408,6 @@
             <div class="stat-card">
                 <div class="stat-value" id="invalidKeys">0</div>
                 <div class="stat-label">무효한 키</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="unusedKeys">0</div>
-                <div class="stat-label">미사용 키</div>
             </div>
         </div>
 
@@ -497,13 +438,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="keyDescription">설명</label>
-                    <textarea id="keyDescription" placeholder="이 API 키의 용도를 설명하세요..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="usageLocation">사용 위치 (선택)</label>
-                    <input type="text" id="usageLocation" placeholder="예: index.html, line 666">
+                    <label for="keyDescription">메모 (선택)</label>
+                    <textarea id="keyDescription" placeholder="예: 테스트용, 프로덕션용 등..."></textarea>
                 </div>
 
                 <button class="btn btn-primary" onclick="addAPIKey()">
@@ -513,19 +449,6 @@
                 <button class="btn btn-secondary" onclick="clearForm()">
                     🗑️ 폼 초기화
                 </button>
-
-                <hr style="margin: 30px 0; border: none; border-top: 2px solid #f0f0f0;">
-
-                <h3 style="margin-bottom: 15px; color: #333; font-size: 16px;">⚙️ 빠른 스캔</h3>
-
-                <button class="btn btn-secondary" onclick="scanProjectFolder()" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
-                    🔍 프로젝트 폴더 스캔
-                </button>
-
-                <div style="margin-top: 15px; padding: 12px; background: #e7f3ff; border-left: 4px solid #2196F3; border-radius: 4px; font-size: 12px;">
-                    <strong>💡 사용 방법:</strong><br>
-                    버튼 클릭 → 프로젝트 폴더 선택 → 자동 스캔 완료!
-                </div>
             </div>
 
             <div class="panel">
@@ -568,7 +491,6 @@
             const keyValue = document.getElementById('keyValue').value.trim();
             const keyType = document.getElementById('keyType').value;
             const keyDescription = document.getElementById('keyDescription').value.trim();
-            const usageLocation = document.getElementById('usageLocation').value.trim();
 
             // 입력 검증
             if (!keyName) {
@@ -594,12 +516,9 @@
                 value: keyValue,
                 type: keyType,
                 description: keyDescription,
-                usageLocations: usageLocation ? [usageLocation] : [],
                 status: 'unknown', // unknown, valid, invalid
-                isUsed: usageLocation ? true : false,
                 createdAt: new Date().toISOString(),
-                lastValidated: null,
-                lastUsed: null
+                lastValidated: null
             };
 
             apiKeys.push(newKey);
@@ -628,7 +547,6 @@
             container.innerHTML = apiKeys.map(key => {
                 const statusClass = key.status === 'valid' ? 'valid' :
                                    key.status === 'invalid' ? 'invalid' : '';
-                const unusedClass = !key.isUsed ? 'unused' : '';
 
                 const statusBadge = key.status === 'valid' ?
                     '<span class="key-status status-valid">✓ 유효</span>' :
@@ -636,22 +554,8 @@
                     '<span class="key-status status-invalid">✗ 무효</span>' :
                     '<span class="key-status status-unknown">? 미검증</span>';
 
-                const usageHTML = key.usageLocations.length > 0 ? `
-                    <div class="key-usage">
-                        <h4>📍 사용 위치:</h4>
-                        <ul class="usage-list">
-                            ${key.usageLocations.map(loc => `<li><code>${loc}</code></li>`).join('')}
-                        </ul>
-                    </div>
-                ` : `
-                    <div class="key-usage">
-                        <h4>⚠️ 사용 위치가 기록되지 않았습니다</h4>
-                        <p style="font-size: 12px; color: #999; margin-top: 5px;">코드 스캔을 실행하여 확인하세요.</p>
-                    </div>
-                `;
-
                 return `
-                    <div class="api-key-card ${statusClass} ${unusedClass}">
+                    <div class="api-key-card ${statusClass}">
                         <div class="key-header">
                             <div class="key-name">${key.name}</div>
                             ${statusBadge}
@@ -670,10 +574,6 @@
                                 <span>✓ 마지막 검증:</span>
                                 <strong>${key.lastValidated ? formatDate(key.lastValidated) : '없음'}</strong>
                             </div>
-                            <div class="key-info-item">
-                                <span>🔄 사용 여부:</span>
-                                <strong>${key.isUsed ? '사용 중' : '미사용'}</strong>
-                            </div>
                         </div>
 
                         ${key.description ? `<p style="color: #666; font-size: 13px; margin-bottom: 10px;">📝 ${key.description}</p>` : ''}
@@ -682,14 +582,9 @@
                             ${maskAPIKey(key.value)} <span style="float: right; cursor: pointer;">📋 복사</span>
                         </div>
 
-                        ${usageHTML}
-
                         <div class="key-actions">
                             <button class="btn-small btn-validate" onclick="validateKey('${key.id}')">
                                 ✓ 유효성 검증
-                            </button>
-                            <button class="btn-small btn-scan" onclick="scanKeyUsage('${key.id}')">
-                                🔍 사용 위치 스캔
                             </button>
                             <button class="btn-small btn-delete" onclick="deleteKey('${key.id}')">
                                 🗑️ 삭제
@@ -750,155 +645,6 @@
             }
         }
 
-        // 프로젝트 폴더 스캔 (브라우저에서 직접 스캔)
-        async function scanProjectFolder() {
-            if (apiKeys.length === 0) {
-                showAlert('먼저 API 키를 등록해주세요!', 'error');
-                return;
-            }
-
-            // File System Access API 지원 확인
-            if (!window.showDirectoryPicker) {
-                showAlert(
-                    '이 브라우저는 폴더 스캔을 지원하지 않습니다.\n\n' +
-                    'Chrome, Edge 또는 최신 브라우저를 사용해주세요.\n\n' +
-                    '또는 터미널에서 "npm run scan"을 사용하세요.',
-                    'error'
-                );
-                return;
-            }
-
-            try {
-                // 폴더 선택
-                const dirHandle = await window.showDirectoryPicker({
-                    mode: 'read',
-                    startIn: 'documents'
-                });
-
-                showLoading(true);
-                showAlert('폴더를 스캔하는 중입니다...', 'info');
-
-                // 스캔 실행
-                const results = await scanDirectory(dirHandle);
-
-                // 결과 적용
-                let updatedCount = 0;
-                Object.entries(results.foundKeys).forEach(([keyValue, locations]) => {
-                    const key = apiKeys.find(k => k.value === keyValue);
-                    if (key) {
-                        key.usageLocations = locations;
-                        key.isUsed = locations.length > 0;
-                        updatedCount++;
-                    }
-                });
-
-                saveKeys();
-                renderAPIKeys();
-                updateStats();
-
-                showAlert(
-                    `✓ 스캔 완료!\n\n` +
-                    `- 스캔한 파일: ${results.totalFiles}개\n` +
-                    `- 발견한 키: ${updatedCount}개\n` +
-                    `- 총 사용 위치: ${results.totalLocations}곳`,
-                    'success'
-                );
-
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    showAlert('스캔이 취소되었습니다.', 'info');
-                } else {
-                    console.error('스캔 오류:', error);
-                    showAlert(`스캔 중 오류 발생: ${error.message}`, 'error');
-                }
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        // 디렉토리 재귀 스캔
-        async function scanDirectory(dirHandle, results = null, basePath = '') {
-            if (!results) {
-                results = {
-                    totalFiles: 0,
-                    totalLocations: 0,
-                    foundKeys: {}
-                };
-            }
-
-            const excludeDirs = ['node_modules', '.git', 'dist', 'build', '.cache'];
-            const includeExts = ['.html', '.js', '.ts', '.jsx', '.tsx', '.json', '.env', '.txt', '.md'];
-
-            try {
-                for await (const entry of dirHandle.values()) {
-                    const currentPath = basePath ? `${basePath}/${entry.name}` : entry.name;
-
-                    if (entry.kind === 'directory') {
-                        // 제외 디렉토리 확인
-                        if (!excludeDirs.includes(entry.name)) {
-                            await scanDirectory(entry, results, currentPath);
-                        }
-                    } else if (entry.kind === 'file') {
-                        // 파일 확장자 확인
-                        const ext = entry.name.substring(entry.name.lastIndexOf('.'));
-                        if (includeExts.includes(ext)) {
-                            await scanFile(entry, results, currentPath);
-                        }
-                    }
-                }
-            } catch (error) {
-                console.warn(`디렉토리 읽기 오류 (${basePath}):`, error);
-            }
-
-            return results;
-        }
-
-        // 파일 스캔
-        async function scanFile(fileHandle, results, filePath) {
-            try {
-                const file = await fileHandle.getFile();
-
-                // 파일 크기 제한 (5MB)
-                if (file.size > 5 * 1024 * 1024) return;
-
-                const content = await file.text();
-                const lines = content.split('\n');
-
-                results.totalFiles++;
-
-                // 각 API 키 검색
-                apiKeys.forEach(key => {
-                    lines.forEach((line, index) => {
-                        if (line.includes(key.value)) {
-                            const location = `${filePath}:${index + 1}`;
-
-                            if (!results.foundKeys[key.value]) {
-                                results.foundKeys[key.value] = [];
-                            }
-
-                            results.foundKeys[key.value].push(location);
-                            results.totalLocations++;
-                        }
-                    });
-                });
-
-            } catch (error) {
-                console.warn(`파일 읽기 오류 (${filePath}):`, error);
-            }
-        }
-
-        // 개별 키 스캔
-        function scanKeyUsage(keyId) {
-            const key = apiKeys.find(k => k.id === keyId);
-            if (!key) return;
-
-            showAlert(
-                `🔍 "${key.name}" 사용 위치를 스캔하려면:\n\n` +
-                `왼쪽 패널의 "🔍 프로젝트 폴더 스캔" 버튼을 클릭하세요!`,
-                'info'
-            );
-        }
-
         // 모든 키 검증
         async function scanAllKeys() {
             if (apiKeys.length === 0) {
@@ -936,8 +682,6 @@
                 apiKeys.filter(k => k.status === 'valid').length;
             document.getElementById('invalidKeys').textContent =
                 apiKeys.filter(k => k.status === 'invalid').length;
-            document.getElementById('unusedKeys').textContent =
-                apiKeys.filter(k => !k.isUsed).length;
         }
 
         // LocalStorage 저장
@@ -951,7 +695,6 @@
             document.getElementById('keyValue').value = '';
             document.getElementById('keyType').value = 'gemini';
             document.getElementById('keyDescription').value = '';
-            document.getElementById('usageLocation').value = '';
         }
 
         // 알림 표시
