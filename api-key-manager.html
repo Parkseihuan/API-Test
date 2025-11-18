@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 키 관리 시스템</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .nav-links {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            margin-right: 15px;
+            padding: 8px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: transform 0.3s;
+        }
+
+        .nav-links a:hover {
+            transform: translateY(-2px);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .api-keys-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .api-key-card {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .api-key-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .api-key-card.invalid {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .api-key-card.valid {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .key-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .key-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .key-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-valid {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-invalid {
+            background: #dc3545;
+            color: white;
+        }
+
+        .status-unknown {
+            background: #6c757d;
+            color: white;
+        }
+
+        .key-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .key-info-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .key-value {
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #333;
+            word-break: break-all;
+            margin-bottom: 15px;
+        }
+
+        .key-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-validate {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-validate:hover {
+            background: #138496;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .scan-all-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #56CCF2 0%, #2F80ED 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .scan-all-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(47, 128, 237, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔑 API 키 관리</h1>
+            <p class="subtitle">간단하게 API 키를 등록하고, 작동 여부를 확인하세요</p>
+            <div class="nav-links">
+                <a href="index.html">← Gemini API 테스트로 돌아가기</a>
+            </div>
+        </div>
+
+        <div class="stats-panel" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat-card">
+                <div class="stat-value" id="totalKeys">0</div>
+                <div class="stat-label">총 API 키</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="validKeys">0</div>
+                <div class="stat-label">유효한 키</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="invalidKeys">0</div>
+                <div class="stat-label">무효한 키</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="usedKeys">0</div>
+                <div class="stat-label">사용 중</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>새 API 키 추가</h2>
+
+                <div id="alert" class="alert"></div>
+
+                <div class="form-group">
+                    <label for="keyName">키 이름 *</label>
+                    <input type="text" id="keyName" placeholder="예: Production Gemini Key" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="keyValue">API 키 값 *</label>
+                    <input type="password" id="keyValue" placeholder="AIzaSy..." required>
+                </div>
+
+                <div class="form-group">
+                    <label for="keyType">API 타입</label>
+                    <select id="keyType">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="other">기타</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="keyDescription">메모 (선택)</label>
+                    <textarea id="keyDescription" placeholder="예: 테스트용, 프로덕션용 등..."></textarea>
+                </div>
+
+                <button class="btn btn-primary" onclick="addAPIKey()">
+                    ➕ API 키 추가
+                </button>
+
+                <button class="btn btn-secondary" onclick="clearForm()">
+                    🗑️ 폼 초기화
+                </button>
+            </div>
+
+            <div class="panel">
+                <h2>등록된 API 키 목록</h2>
+
+                <button class="scan-all-btn" onclick="scanAllKeys()">
+                    🔍 모든 키 유효성 검증 실행
+                </button>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px; color: #666;">처리 중...</p>
+                </div>
+
+                <div id="apiKeysList" class="api-keys-list">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>등록된 API 키가 없습니다</h3>
+                        <p>왼쪽 폼을 사용하여 새 API 키를 추가하세요.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // LocalStorage에서 API 키 목록 관리
+        let apiKeys = JSON.parse(localStorage.getItem('apiKeys') || '[]');
+
+        // 페이지 로드 시 초기화
+        window.onload = function() {
+            renderAPIKeys();
+            updateStats();
+            console.log('🔑 API 키 관리 시스템이 로드되었습니다.');
+        };
+
+        // 새 API 키 추가
+        function addAPIKey() {
+            const keyName = document.getElementById('keyName').value.trim();
+            const keyValue = document.getElementById('keyValue').value.trim();
+            const keyType = document.getElementById('keyType').value;
+            const keyDescription = document.getElementById('keyDescription').value.trim();
+
+            // 입력 검증
+            if (!keyName) {
+                showAlert('키 이름을 입력해주세요.', 'error');
+                return;
+            }
+
+            if (!keyValue) {
+                showAlert('API 키 값을 입력해주세요.', 'error');
+                return;
+            }
+
+            // 중복 확인
+            if (apiKeys.some(key => key.value === keyValue)) {
+                showAlert('이미 등록된 API 키입니다.', 'error');
+                return;
+            }
+
+            // 새 키 생성
+            const newKey = {
+                id: Date.now().toString(),
+                name: keyName,
+                value: keyValue,
+                type: keyType,
+                description: keyDescription,
+                status: 'unknown', // unknown, valid, invalid
+                createdAt: new Date().toISOString(),
+                lastValidated: null,
+                isUsedInProject: false, // index.html에서 사용 중인지
+                quotaInfo: null // 할당량 정보
+            };
+
+            apiKeys.push(newKey);
+            saveKeys();
+            renderAPIKeys();
+            updateStats();
+            clearForm();
+            showAlert('API 키가 성공적으로 추가되었습니다!', 'success');
+        }
+
+        // API 키 렌더링
+        function renderAPIKeys() {
+            const container = document.getElementById('apiKeysList');
+
+            if (apiKeys.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>등록된 API 키가 없습니다</h3>
+                        <p>왼쪽 폼을 사용하여 새 API 키를 추가하세요.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = apiKeys.map(key => {
+                const statusClass = key.status === 'valid' ? 'valid' :
+                                   key.status === 'invalid' ? 'invalid' : '';
+
+                const statusBadge = key.status === 'valid' ?
+                    '<span class="key-status status-valid">✓ 유효</span>' :
+                    key.status === 'invalid' ?
+                    '<span class="key-status status-invalid">✗ 무효</span>' :
+                    '<span class="key-status status-unknown">? 미검증</span>';
+
+                const usageBadge = key.isUsedInProject ?
+                    '<span class="key-status" style="background: #28a745;">✓ 사용 중</span>' :
+                    '<span class="key-status" style="background: #ffc107; color: #333;">미사용</span>';
+
+                const quotaInfo = key.quotaInfo ?
+                    `<div style="background: #e7f3ff; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-size: 12px;">
+                        <strong>📊 플랜 정보:</strong> ${key.quotaInfo}
+                    </div>` : '';
+
+                return `
+                    <div class="api-key-card ${statusClass}">
+                        <div class="key-header">
+                            <div class="key-name">${key.name}</div>
+                            <div style="display: flex; gap: 5px;">
+                                ${statusBadge}
+                                ${usageBadge}
+                            </div>
+                        </div>
+
+                        ${quotaInfo}
+
+                        <div class="key-info">
+                            <div class="key-info-item">
+                                <span>🔑 타입:</span>
+                                <strong>${getKeyTypeLabel(key.type)}</strong>
+                            </div>
+                            <div class="key-info-item">
+                                <span>📅 등록일:</span>
+                                <strong>${formatDate(key.createdAt)}</strong>
+                            </div>
+                            <div class="key-info-item">
+                                <span>✓ 마지막 검증:</span>
+                                <strong>${key.lastValidated ? formatDate(key.lastValidated) : '없음'}</strong>
+                            </div>
+                        </div>
+
+                        ${key.description ? `<p style="color: #666; font-size: 13px; margin-bottom: 10px;">📝 ${key.description}</p>` : ''}
+
+                        <div class="key-value" onclick="copyToClipboard('${key.value}', this)">
+                            ${maskAPIKey(key.value)} <span style="float: right; cursor: pointer;">📋 복사</span>
+                        </div>
+
+                        <div class="key-actions">
+                            <button class="btn-small btn-validate" onclick="validateKey('${key.id}')">
+                                ✓ 유효성 검증
+                            </button>
+                            <button class="btn-small btn-delete" onclick="deleteKey('${key.id}')">
+                                🗑️ 삭제
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // API 키 유효성 검증
+        async function validateKey(keyId) {
+            const key = apiKeys.find(k => k.id === keyId);
+            if (!key) return;
+
+            showLoading(true);
+
+            try {
+                let isValid = false;
+                let quotaInfo = null;
+
+                // API 타입에 따라 다른 검증 로직
+                if (key.type === 'gemini') {
+                    // Gemini API 검증 - 실제 API 호출로 플랜 정보 자동 감지
+                    const testResponse = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${key.value}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: 'hi' }] }]
+                            })
+                        }
+                    );
+
+                    if (testResponse.ok) {
+                        isValid = true;
+
+                        // 응답 헤더에서 rate limit 정보 확인
+                        const rateLimitLimit = testResponse.headers.get('x-ratelimit-limit-requests');
+                        const rateLimitRemaining = testResponse.headers.get('x-ratelimit-remaining-requests');
+
+                        // Rate limit으로 플랜 판별
+                        if (rateLimitLimit) {
+                            const limit = parseInt(rateLimitLimit);
+                            if (limit <= 15) {
+                                quotaInfo = `무료 플랜 (분당 ${limit}회 제한, 남은 요청: ${rateLimitRemaining || '확인 불가'})`;
+                            } else if (limit <= 60) {
+                                quotaInfo = `스타터 플랜 (분당 ${limit}회 제한, 남은 요청: ${rateLimitRemaining || '확인 불가'})`;
+                            } else {
+                                quotaInfo = `프로 플랜 이상 (분당 ${limit}회 제한, 남은 요청: ${rateLimitRemaining || '확인 불가'})`;
+                            }
+                        } else {
+                            // 헤더 정보가 없으면 기본값
+                            quotaInfo = '플랜 정보 확인 불가 - Google AI Studio에서 확인하세요';
+                        }
+                    } else if (testResponse.status === 429) {
+                        isValid = false;
+                        quotaInfo = '할당량 초과 - 잠시 후 다시 시도하세요';
+                    } else {
+                        isValid = false;
+                        quotaInfo = null;
+                    }
+                } else if (key.type === 'openai') {
+                    // OpenAI API 검증
+                    const response = await fetch('https://api.openai.com/v1/models', {
+                        headers: { 'Authorization': `Bearer ${key.value}` }
+                    });
+                    isValid = response.ok;
+
+                    if (isValid) {
+                        quotaInfo = 'OpenAI API (플랜 정보는 대시보드에서 확인)';
+                    }
+                } else {
+                    // 기타 API는 간단한 형식 검증만
+                    isValid = key.value.length > 10;
+                    quotaInfo = '형식 검증만 수행됨';
+                }
+
+                // 상태 업데이트
+                key.status = isValid ? 'valid' : 'invalid';
+                key.lastValidated = new Date().toISOString();
+                key.quotaInfo = quotaInfo;
+
+                // index.html에서 사용 중인지 확인
+                await checkUsageInIndex();
+
+                saveKeys();
+                renderAPIKeys();
+                updateStats();
+
+                showAlert(
+                    isValid ?
+                    `✓ "${key.name}" 키가 유효합니다!${quotaInfo ? '\n' + quotaInfo : ''}` :
+                    `✗ "${key.name}" 키가 유효하지 않습니다.`,
+                    isValid ? 'success' : 'error'
+                );
+            } catch (error) {
+                console.error('검증 오류:', error);
+                showAlert(`검증 중 오류 발생: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // index.html에서 사용 중인 키 확인
+        async function checkUsageInIndex() {
+            try {
+                const response = await fetch('index.html');
+                const htmlContent = await response.text();
+
+                // 모든 키에 대해 사용 여부 확인
+                apiKeys.forEach(key => {
+                    key.isUsedInProject = htmlContent.includes(key.value);
+                });
+            } catch (error) {
+                console.warn('index.html 확인 실패:', error);
+            }
+        }
+
+        // 모든 키 검증
+        async function scanAllKeys() {
+            if (apiKeys.length === 0) {
+                showAlert('검증할 API 키가 없습니다.', 'info');
+                return;
+            }
+
+            showLoading(true);
+
+            for (const key of apiKeys) {
+                await validateKey(key.id);
+                // Rate limiting 방지를 위한 딜레이
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
+            showLoading(false);
+            showAlert('모든 API 키 검증이 완료되었습니다!', 'success');
+        }
+
+        // API 키 삭제
+        function deleteKey(keyId) {
+            if (!confirm('정말로 이 API 키를 삭제하시겠습니까?')) return;
+
+            apiKeys = apiKeys.filter(k => k.id !== keyId);
+            saveKeys();
+            renderAPIKeys();
+            updateStats();
+            showAlert('API 키가 삭제되었습니다.', 'success');
+        }
+
+        // 통계 업데이트
+        function updateStats() {
+            document.getElementById('totalKeys').textContent = apiKeys.length;
+            document.getElementById('validKeys').textContent =
+                apiKeys.filter(k => k.status === 'valid').length;
+            document.getElementById('invalidKeys').textContent =
+                apiKeys.filter(k => k.status === 'invalid').length;
+            document.getElementById('usedKeys').textContent =
+                apiKeys.filter(k => k.isUsedInProject).length;
+        }
+
+        // LocalStorage 저장
+        function saveKeys() {
+            localStorage.setItem('apiKeys', JSON.stringify(apiKeys));
+        }
+
+        // 폼 초기화
+        function clearForm() {
+            document.getElementById('keyName').value = '';
+            document.getElementById('keyValue').value = '';
+            document.getElementById('keyType').value = 'gemini';
+            document.getElementById('keyDescription').value = '';
+        }
+
+        // 알림 표시
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type} show`;
+
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        // 로딩 표시
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) {
+                loading.classList.add('show');
+            } else {
+                loading.classList.remove('show');
+            }
+        }
+
+        // API 키 마스킹
+        function maskAPIKey(key) {
+            if (key.length <= 12) return '***';
+            return key.substring(0, 8) + '...' + key.substring(key.length - 4);
+        }
+
+        // 클립보드 복사
+        function copyToClipboard(text, element) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHTML = element.innerHTML;
+                element.innerHTML = maskAPIKey(text) + ' <span style="float: right; color: #28a745;">✓ 복사됨!</span>';
+                setTimeout(() => {
+                    element.innerHTML = originalHTML;
+                }, 2000);
+            }).catch(err => {
+                console.error('복사 실패:', err);
+            });
+        }
+
+        // 날짜 포맷팅
+        function formatDate(dateString) {
+            if (!dateString) return '없음';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // API 타입 레이블
+        function getKeyTypeLabel(type) {
+            const labels = {
+                'gemini': 'Google Gemini',
+                'openai': 'OpenAI',
+                'anthropic': 'Anthropic Claude',
+                'other': '기타'
+            };
+            return labels[type] || type;
+        }
+
+        // 내보내기 기능
+        function exportKeys() {
+            const dataStr = JSON.stringify(apiKeys, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = `api-keys-${Date.now()}.json`;
+
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        // 가져오기 기능
+        function importKeys() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+
+                reader.onload = event => {
+                    try {
+                        const importedKeys = JSON.parse(event.target.result);
+                        apiKeys = [...apiKeys, ...importedKeys];
+                        saveKeys();
+                        renderAPIKeys();
+                        updateStats();
+                        showAlert('API 키를 성공적으로 가져왔습니다!', 'success');
+                    } catch (error) {
+                        showAlert('파일 형식이 올바르지 않습니다.', 'error');
+                    }
+                };
+
+                reader.readAsText(file);
+            };
+
+            input.click();
+        }
+    </script>
+</body>
+</html>
