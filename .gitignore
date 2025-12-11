@@ -1,0 +1,6 @@
+node_modules/
+api-keys-usage.json
+registered-keys.json
+*.log
+.env
+.DS_Store

@@ -1,0 +1,22 @@
+{
+  "name": "api-key-manager",
+  "version": "1.0.0",
+  "description": "API 키 관리 및 사용 위치 추적 시스템",
+  "main": "scan-api-keys.js",
+  "scripts": {
+    "scan": "node scan-api-keys.js",
+    "scan:watch": "nodemon scan-api-keys.js"
+  },
+  "keywords": [
+    "api-key",
+    "management",
+    "scanner",
+    "gemini",
+    "openai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
